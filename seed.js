@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
-// Load environment variables
+// cargamos variables de entorno
 dotenv.config();
 
-// Import models
+// Importar modelos
 const { User, Category, Product } = require('./src/models');
 
-// Connect to database
+// Conexión a la base de datos
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -19,19 +19,19 @@ const connectDB = async () => {
   }
 };
 
-// Seed data
+// Función principal de seed
 const seedData = async () => {
   try {
     console.log('🌱 Iniciando seed de datos...');
 
-    // Clear existing data
+    // Limpiar colecciones existentes
     await User.deleteMany({});
     await Category.deleteMany({});
     await Product.deleteMany({});
 
     console.log('🗑️  Datos existentes eliminados');
 
-    // Create admin user
+    // Crea usuario administrador
     const adminUser = await User.create({
       nombre: 'Administrador',
       email: 'admin@ecommerce.com',
@@ -46,7 +46,7 @@ const seedData = async () => {
       rol: 'administrador'
     });
 
-    // Create sample customer
+    // Crea usuario cliente
     const customer = await User.create({
       nombre: 'Juan Pérez',
       email: 'juan@email.com',
@@ -63,7 +63,7 @@ const seedData = async () => {
 
     console.log('👥 Usuarios creados');
 
-    // Create categories
+    // Crea categorías
     const categories = await Category.create([
       {
         nombre: 'Electrónicos',
@@ -89,7 +89,7 @@ const seedData = async () => {
 
     console.log('📂 Categorías creadas');
 
-    // Create sample products
+    // Crea productos
     const products = await Product.create([
       {
         nombre: 'iPhone 15 Pro',
@@ -179,14 +179,14 @@ const seedData = async () => {
   }
 };
 
-// Run seed
+// correr la función de seed
 const runSeed = async () => {
   await connectDB();
   await seedData();
   process.exit(0);
 };
 
-// Only run if called directly
+// Ejecutar si es el archivo principal
 if (require.main === module) {
   runSeed();
 }
