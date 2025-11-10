@@ -4,16 +4,13 @@
 
 ### `$eq` (Equal)
 ```javascript
-// En userController.js - filtrar usuarios por rol
-filter.rol = req.query.rol; // Implícito $eq
+filter.rol = req.query.rol; 
 
-// En orderController.js - filtrar pedidos por estado  
-filter.estado = req.query.estado; // Implícito $eq
+filter.estado = req.query.estado; 
 ```
 
 ### `$ne` (Not Equal)
 ```javascript
-// En productController.js - obtener productos activos
 filter.activo = { $ne: false };
 ```
 
