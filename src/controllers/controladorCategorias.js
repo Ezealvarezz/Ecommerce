@@ -258,6 +258,36 @@ const obtenerCategoriasActivas = async (req, res, next) => {
   }
 };
 
+const obtenerEstadisticasCategorias = async (req, res, next) => {
+  try {
+    const estadisticas = await Categoria.aggregate([
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id',
+          foreignField: 'categoria',
+          as: 'productos'
+        }
+      },
+      {
+        $project: {
+          nombre: 1,
+          descripcion: 1,
+          cantidadProductos: { $size: '$productos' }
+        }
+      },
+      {
+        $sort: { cantidadProductos: -1 }
+      }
+    ]);
+
+    res.success({ estadisticas });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   obtenerCategorias,
   obtenerCategoriaPorId,
@@ -265,5 +295,6 @@ module.exports = {
   actualizarCategoria,
   eliminarCategoria,
   obtenerProductosPorCategoria,
-  obtenerCategoriasActivas
+  obtenerCategoriasActivas,
+  obtenerEstadisticasCategorias
 };

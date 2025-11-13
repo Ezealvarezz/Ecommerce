@@ -9,11 +9,7 @@ const {
 } = require('../controllers/controladorPedidos');
 
 const { autenticar, requerirAdmin } = require('../middleware/autenticacion');
-const { validarEsquema } = require('../middleware/validacion');
-const { 
-  esquemaCrearPedido,
-  esquemaActualizarEstado 
-} = require('../validation/esquemasPedidos');
+const { validar, esquemasPedido } = require('../middleware/validacion');
 
 const router = express.Router();
 
@@ -27,14 +23,14 @@ router.get('/:id', obtenerPedidoPorId);
 
 router.post(
   '/',
-  validarEsquema(esquemaCrearPedido),
+  validar(esquemasPedido.crear),
   crearPedido
 );
 
 router.patch(
   '/:id/estado',
   requerirAdmin,
-  validarEsquema(esquemaActualizarEstado),
+  validar(esquemasPedido.actualizarEstado),
   actualizarEstadoPedido
 );
 

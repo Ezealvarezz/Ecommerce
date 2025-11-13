@@ -98,17 +98,22 @@ const obtenerProductoPorId = async (req, res, next) => {
 
 const crearProducto = async (req, res, next) => {
   try {
+    console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
+    
     const {
       nombre,
       descripcion,
       precio,
       categoria: idCategoria,
+      marca,
       stock,
       imagenes,
       disponible,
       especificaciones,
       etiquetas
     } = req.body;
+    
+    console.log('🏷️  Marca extraída:', marca);
 
     const categoriaExiste = await Categoria.findById(idCategoria);
     if (!categoriaExiste) {
@@ -128,6 +133,7 @@ const crearProducto = async (req, res, next) => {
       descripcion,
       precio,
       categoria: idCategoria,
+      marca,
       stock,
       imagenes,
       disponible,
@@ -340,6 +346,79 @@ const obtenerProductosDestacados = async (req, res, next) => {
   }
 };
 
+const filtrarProductos = async (req, res, next) => {
+  try {
+    const { precioMin, precioMax, marca } = req.query;
+    const filtros = {};
+
+    if (precioMin || precioMax) {
+      filtros.precio = {};
+      if (precioMin) filtros.precio.$gte = parseFloat(precioMin);
+      if (precioMax) filtros.precio.$lte = parseFloat(precioMax);
+    }
+
+    if (marca) {
+      filtros['especificaciones.marca'] = new RegExp(marca, 'i');
+    }
+
+    const productos = await Producto.find(filtros)
+      .populate('categoria', 'nombre descripcion')
+      .select('-__v');
+
+    res.success({ productos, filtros });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerProductosTop = async (req, res, next) => {
+  try {
+    const productos = await Producto.aggregate([
+      {
+        $lookup: {
+          from: 'resenas',
+          localField: '_id',
+          foreignField: 'producto',
+          as: 'resenas'
+        }
+      },
+      {
+        $addFields: {
+          totalResenas: { $size: '$resenas' }
+        }
+      },
+      {
+        $match: {
+          totalResenas: { $gte: 1 }
+        }
+      },
+      {
+        $sort: { totalResenas: -1 }
+      },
+      {
+        $limit: 10
+      },
+      {
+        $lookup: {
+          from: 'categorias',
+          localField: 'categoria',
+          foreignField: '_id',
+          as: 'categoria'
+        }
+      },
+      {
+        $unwind: '$categoria'
+      }
+    ]);
+
+    res.success({ productos });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   obtenerProductos,
   obtenerProductoPorId,
@@ -348,5 +427,7 @@ module.exports = {
   eliminarProducto,
   actualizarStock,
   buscarProductos,
-  obtenerProductosDestacados
+  obtenerProductosDestacados,
+  filtrarProductos,
+  obtenerProductosTop
 };

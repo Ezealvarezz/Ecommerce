@@ -16,8 +16,8 @@ const { limitadorRegistro, limitadorAutenticacion } = require('../middleware/rat
 
 const router = express.Router();
 
-router.post('/', limitadorRegistro, validar(esquemasUsuario.registro), registrarUsuario);
-router.post('/login', limitadorAutenticacion, validar(esquemasUsuario.login), loginUsuario);
+router.post('/registro', limitadorRegistro, registrarUsuario);
+router.post('/login', limitadorAutenticacion, loginUsuario);
 
 router.use(autenticar);
 

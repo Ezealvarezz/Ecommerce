@@ -9,11 +9,7 @@ const {
 } = require('../controllers/controladorCarrito');
 
 const { autenticar } = require('../middleware/autenticacion');
-const { validarEsquema } = require('../middleware/validacion');
-const { 
-  esquemaAgregarProducto,
-  esquemaActualizarCantidad 
-} = require('../validation/esquemasCarrito');
+const { validar, esquemasCarrito } = require('../middleware/validacion');
 
 const router = express.Router();
 
@@ -22,18 +18,18 @@ router.use(autenticar);
 router.get('/', obtenerCarrito);
 
 router.post(
-  '/productos',
-  validarEsquema(esquemaAgregarProducto),
+  '/',
+  validar(esquemasCarrito.agregarItem),
   agregarProducto
 );
 
 router.put(
-  '/productos',
-  validarEsquema(esquemaActualizarCantidad),
+  '/',
+  validar(esquemasCarrito.actualizarItem),
   actualizarCantidad
 );
 
-router.delete('/productos/:idProducto', eliminarProducto);
+router.delete('/:idProducto', eliminarProducto);
 
 router.delete('/', limpiarCarrito);
 

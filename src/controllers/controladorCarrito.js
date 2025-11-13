@@ -8,8 +8,8 @@ const obtenerCarrito = async (req, res, next) => {
 
     let carrito = await Carrito.findOne({ usuario: idUsuario })
       .populate({
-        path: 'productos.producto',
-        select: 'nombre precio imagenes disponible stock categoria',
+        path: 'items.producto',
+        select: 'nombre precio imagenes activo stock categoria',
         populate: {
           path: 'categoria',
           select: 'nombre'
@@ -19,23 +19,23 @@ const obtenerCarrito = async (req, res, next) => {
     if (!carrito) {
       carrito = new Carrito({
         usuario: idUsuario,
-        productos: []
+        items: []
       });
       await carrito.save();
     }
 
-    const productosDisponibles = carrito.productos.filter(item => 
+    const productosDisponibles = carrito.items.filter(item => 
       item.producto && 
-      item.producto.disponible && 
+      item.producto.activo && 
       item.producto.stock > 0
     );
 
-    if (productosDisponibles.length !== carrito.productos.length) {
-      carrito.productos = productosDisponibles;
+    if (productosDisponibles.length !== carrito.items.length) {
+      carrito.items = productosDisponibles;
       await carrito.save();
     }
 
-    await carrito.calcularTotales();
+
 
     res.success({ carrito });
 
@@ -46,8 +46,8 @@ const obtenerCarrito = async (req, res, next) => {
 
 const agregarProducto = async (req, res, next) => {
   try {
-    const idUsuario = req.usuario.id;
-    const { idProducto, cantidad } = req.body;
+    const idUsuario = req.usuario._id;
+    const { producto: idProducto, cantidad } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(idProducto)) {
       return res.error('ID de producto inválido', 400);
@@ -62,7 +62,7 @@ const agregarProducto = async (req, res, next) => {
       return res.error('Producto no encontrado', 404);
     }
 
-    if (!producto.disponible) {
+    if (!producto.activo) {
       return res.error('El producto no está disponible', 400);
     }
 
@@ -75,11 +75,16 @@ const agregarProducto = async (req, res, next) => {
     if (!carrito) {
       carrito = new Carrito({
         usuario: idUsuario,
-        productos: []
+        items: []
       });
+      await carrito.save();
     }
 
-    const productoExistente = carrito.productos.find(
+    if (!carrito.items) {
+      carrito.items = [];
+    }
+
+    const productoExistente = carrito.items.find(
       item => item.producto.toString() === idProducto
     );
 
@@ -94,21 +99,21 @@ const agregarProducto = async (req, res, next) => {
       }
       
       productoExistente.cantidad = nuevaCantidad;
-      productoExistente.precioUnitario = producto.precio;
+      productoExistente.precio = producto.precio;
     } else {
-      carrito.productos.push({
+      carrito.items.push({
         producto: idProducto,
         cantidad,
-        precioUnitario: producto.precio
+        precio: producto.precio
       });
     }
 
     await carrito.save();
-    await carrito.calcularTotales();
+
 
     const carritoPopulado = await Carrito.findById(carrito._id)
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre precio imagenes disponible stock categoria',
         populate: {
           path: 'categoria',
@@ -153,7 +158,7 @@ const actualizarCantidad = async (req, res, next) => {
       return res.error('Carrito no encontrado', 404);
     }
 
-    const productoEnCarrito = carrito.productos.find(
+    const productoEnCarrito = carrito.items.find(
       item => item.producto.toString() === idProducto
     );
 
@@ -162,14 +167,14 @@ const actualizarCantidad = async (req, res, next) => {
     }
 
     productoEnCarrito.cantidad = cantidad;
-    productoEnCarrito.precioUnitario = producto.precio;
+    productoEnCarrito.precio = producto.precio;
 
     await carrito.save();
-    await carrito.calcularTotales();
+
 
     const carritoPopulado = await Carrito.findById(carrito._id)
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre precio imagenes disponible stock categoria',
         populate: {
           path: 'categoria',
@@ -201,7 +206,7 @@ const eliminarProducto = async (req, res, next) => {
       return res.error('Carrito no encontrado', 404);
     }
 
-    const indiceProducto = carrito.productos.findIndex(
+    const indiceProducto = carrito.items.findIndex(
       item => item.producto.toString() === idProducto
     );
 
@@ -209,14 +214,14 @@ const eliminarProducto = async (req, res, next) => {
       return res.error('Producto no encontrado en el carrito', 404);
     }
 
-    carrito.productos.splice(indiceProducto, 1);
+    carrito.items.splice(indiceProducto, 1);
 
     await carrito.save();
-    await carrito.calcularTotales();
+
 
     const carritoPopulado = await Carrito.findById(carrito._id)
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre precio imagenes disponible stock categoria',
         populate: {
           path: 'categoria',
@@ -243,9 +248,9 @@ const limpiarCarrito = async (req, res, next) => {
       return res.error('Carrito no encontrado', 404);
     }
 
-    carrito.productos = [];
+    carrito.items = [];
     await carrito.save();
-    await carrito.calcularTotales();
+
 
     res.success(
       { carrito },
@@ -263,18 +268,18 @@ const verificarDisponibilidad = async (req, res, next) => {
 
     const carrito = await Carrito.findOne({ usuario: idUsuario })
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre precio disponible stock'
       });
 
-    if (!carrito || carrito.productos.length === 0) {
+    if (!carrito || carrito.items.length === 0) {
       return res.error('Carrito vacío', 400);
     }
 
     const productosNoDisponibles = [];
     const productosStockInsuficiente = [];
 
-    for (const item of carrito.productos) {
+    for (const item of carrito.items) {
       if (!item.producto) {
         productosNoDisponibles.push({
           mensaje: 'Producto eliminado'
@@ -312,12 +317,83 @@ const verificarDisponibilidad = async (req, res, next) => {
   }
 };
 
+const obtenerCarritoPorUsuario = async (req, res, next) => {
+  try {
+    const { usuarioId } = req.params;
+
+    if (req.usuario.id !== usuarioId && req.usuario.rol !== 'admin') {
+      return res.error('No tienes permisos para ver este carrito', 403);
+    }
+
+    let carrito = await Carrito.findOne({ usuario: usuarioId })
+      .populate({
+        path: 'items.producto',
+        select: 'nombre precio imagenes disponible stock categoria',
+        populate: {
+          path: 'categoria',
+          select: 'nombre'
+        }
+      });
+
+    if (!carrito) {
+      carrito = new Carrito({
+        usuario: usuarioId,
+        productos: []
+      });
+      await carrito.save();
+    }
+
+
+
+    res.success({ carrito });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerTotalCarrito = async (req, res, next) => {
+  try {
+    const { usuarioId } = req.params;
+
+    if (req.usuario.id !== usuarioId && req.usuario.rol !== 'admin') {
+      return res.error('No tienes permisos para ver este carrito', 403);
+    }
+
+    const carrito = await Carrito.findOne({ usuario: usuarioId })
+      .populate('items.producto', 'precio');
+
+    if (!carrito) {
+      return res.success({
+        subtotal: 0,
+        impuestos: 0,
+        costoEnvio: 0,
+        total: 0
+      });
+    }
+
+
+
+    res.success({
+      subtotal: carrito.subtotal,
+      impuestos: carrito.impuestos,
+      costoEnvio: carrito.costoEnvio,
+      total: carrito.total
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   obtenerCarrito,
   agregarProducto,
   actualizarCantidad,
   eliminarProducto,
   limpiarCarrito,
-  verificarDisponibilidad
+  verificarDisponibilidad,
+  obtenerCarritoPorUsuario,
+  obtenerTotalCarrito
 };
 

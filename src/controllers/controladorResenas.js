@@ -6,7 +6,7 @@ const { mongoose } = require('mongoose');
 const crearResena = async (req, res, next) => {
   try {
     const idUsuario = req.usuario.id;
-    const { idProducto, calificacion, comentario } = req.body;
+    const { producto: idProducto, calificacion, comentario } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(idProducto)) {
       return res.error('ID de producto inválido', 400);
@@ -19,7 +19,7 @@ const crearResena = async (req, res, next) => {
 
     const pedidoConProducto = await Pedido.findOne({
       usuario: idUsuario,
-      'productos.producto': idProducto,
+      'items.producto': idProducto,
       estado: 'entregado'
     });
 
@@ -383,6 +383,158 @@ const actualizarCalificacionPromedio = async (idProducto) => {
   });
 };
 
+const obtenerResenas = async (req, res, next) => {
+  try {
+    const pagina = parseInt(req.query.pagina) || 1;
+    const limite = parseInt(req.query.limite) || 10;
+    const saltar = (pagina - 1) * limite;
+
+    const resenas = await Resena.find()
+      .populate('usuario', 'nombre email')
+      .populate('producto', 'nombre categoria')
+      .populate('producto.categoria', 'nombre')
+      .sort({ fechaCreacion: -1 })
+      .skip(saltar)
+      .limit(limite)
+      .select('-__v');
+
+    const totalResenas = await Resena.countDocuments();
+
+    res.success({
+      resenas,
+      total: totalResenas,
+      pagina,
+      limite
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerResenaPorId = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.error('ID de reseña inválido', 400);
+    }
+
+    const resena = await Resena.findById(id)
+      .populate('usuario', 'nombre email')
+      .populate('producto', 'nombre categoria precio')
+      .select('-__v');
+
+    if (!resena) {
+      return res.error('Reseña no encontrada', 404);
+    }
+
+    res.success({ resena });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerResenasPorProducto = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const pagina = parseInt(req.query.pagina) || 1;
+    const limite = parseInt(req.query.limite) || 10;
+    const saltar = (pagina - 1) * limite;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.error('ID de producto inválido', 400);
+    }
+
+    const resenas = await Resena.find({ producto: productId })
+      .populate('usuario', 'nombre')
+      .sort({ fechaCreacion: -1 })
+      .skip(saltar)
+      .limit(limite)
+      .select('-__v');
+
+    const totalResenas = await Resena.countDocuments({ producto: productId });
+
+    const promedioCalificacion = await Resena.aggregate([
+      { $match: { producto: new mongoose.Types.ObjectId(productId) } },
+      {
+        $group: {
+          _id: null,
+          promedio: { $avg: '$calificacion' }
+        }
+      }
+    ]);
+
+    res.success({
+      resenas,
+      total: totalResenas,
+      promedioCalificacion: promedioCalificacion[0]?.promedio || 0,
+      pagina,
+      limite
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+const obtenerPromedioCalificaciones = async (req, res, next) => {
+  try {
+    const promedios = await Resena.aggregate([
+      {
+        $group: {
+          _id: '$producto',
+          promedioCalificacion: { $avg: '$calificacion' },
+          totalResenas: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'producto'
+        }
+      },
+      {
+        $unwind: '$producto'
+      },
+      {
+        $lookup: {
+          from: 'categorias',
+          localField: 'producto.categoria',
+          foreignField: '_id',
+          as: 'categoria'
+        }
+      },
+      {
+        $unwind: '$categoria'
+      },
+      {
+        $project: {
+          'producto.nombre': 1,
+          'producto.precio': 1,
+          'categoria.nombre': 1,
+          promedioCalificacion: { $round: ['$promedioCalificacion', 2] },
+          totalResenas: 1
+        }
+      },
+      {
+        $sort: { promedioCalificacion: -1, totalResenas: -1 }
+      },
+      {
+        $limit: 20
+      }
+    ]);
+
+    res.success({ promedios });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   crearResena,
   obtenerResenasProducto,
@@ -390,5 +542,9 @@ module.exports = {
   actualizarResena,
   eliminarResena,
   reportarResena,
-  obtenerResenasReportadas
+  obtenerResenasReportadas,
+  obtenerResenas,
+  obtenerResenaPorId,
+  obtenerResenasPorProducto,
+  obtenerPromedioCalificaciones
 };

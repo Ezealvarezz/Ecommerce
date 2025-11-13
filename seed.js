@@ -2,13 +2,10 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
-// cargamos variables de entorno
 dotenv.config();
 
-// Importar modelos
 const { User, Category, Product } = require('./src/models');
 
-// Conexión a la base de datos
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -19,19 +16,16 @@ const connectDB = async () => {
   }
 };
 
-// Función principal de seed
 const seedData = async () => {
   try {
     console.log('🌱 Iniciando seed de datos...');
 
-    // Limpiar colecciones existentes
     await User.deleteMany({});
     await Category.deleteMany({});
     await Product.deleteMany({});
 
     console.log('🗑️  Datos existentes eliminados');
 
-    // Crea usuario administrador
     const adminUser = await User.create({
       nombre: 'Administrador',
       email: 'admin@ecommerce.com',
@@ -46,7 +40,6 @@ const seedData = async () => {
       rol: 'administrador'
     });
 
-    // Crea usuario cliente
     const customer = await User.create({
       nombre: 'Juan Pérez',
       email: 'juan@email.com',
@@ -63,7 +56,6 @@ const seedData = async () => {
 
     console.log('👥 Usuarios creados');
 
-    // Crea categorías
     const categories = await Category.create([
       {
         nombre: 'Electrónicos',
@@ -89,7 +81,6 @@ const seedData = async () => {
 
     console.log('📂 Categorías creadas');
 
-    // Crea productos
     const products = await Product.create([
       {
         nombre: 'iPhone 15 Pro',
@@ -179,14 +170,12 @@ const seedData = async () => {
   }
 };
 
-// correr la función de seed
 const runSeed = async () => {
   await connectDB();
   await seedData();
   process.exit(0);
 };
 
-// Ejecutar si es el archivo principal
 if (require.main === module) {
   runSeed();
 }

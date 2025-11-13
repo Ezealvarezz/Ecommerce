@@ -9,11 +9,13 @@ const { manejadorErrores, noEncontrado, formatearRespuesta } = require('./src/mi
 const { limitadorGeneral } = require('./src/middleware/rateLimiter');
 
 const rutasUsuarios = require('./src/routes/rutasUsuarios');
-const rutasProductos = require('./src/routes/rutasProductos');
-const rutasCategorias = require('./src/routes/rutasCategorias');
+const rutasUsers = require('./src/routes/rutasUsers');
+const rutasProductos = require('./src/routes/rutasProductosReq');
+const rutasCategorias = require('./src/routes/rutasCategoriasReq');
 const rutasCarrito = require('./src/routes/rutasCarrito');
+const rutasOrdenes = require('./src/routes/rutasOrdenes');
 const rutasPedidos = require('./src/routes/rutasPedidos');
-const rutasResenas = require('./src/routes/rutasResenas');
+const rutasResenas = require('./src/routes/rutasResenasReq');
 
 const conectarDB = require('./src/config/database');
 
@@ -49,13 +51,15 @@ aplicacion.get('/health', (req, res) => {
 
 aplicacion.get('/api', (req, res) => {
   res.success({
-    mensaje: 'API E-commerce REST',
+    mensaje: 'API E-commerce REST - Parcial Integrador BD2',
     version: '1.0.0',
     endpoints: {
-      usuarios: '/api/usuarios',
+      usuarios: '/api/usuarios (login/registro)',
+      users: '/api/users (CRUD usuarios)',
       productos: '/api/productos',
-      categorias: '/api/categorias',
+      categorias: '/api/categorias', 
       carrito: '/api/carrito',
+      ordenes: '/api/ordenes',
       pedidos: '/api/pedidos',
       resenas: '/api/resenas'
     },
@@ -64,9 +68,11 @@ aplicacion.get('/api', (req, res) => {
 });
 
 aplicacion.use('/api/usuarios', rutasUsuarios);
+aplicacion.use('/api/users', rutasUsers);
 aplicacion.use('/api/productos', rutasProductos);
 aplicacion.use('/api/categorias', rutasCategorias);
 aplicacion.use('/api/carrito', rutasCarrito);
+aplicacion.use('/api/ordenes', rutasOrdenes);
 aplicacion.use('/api/pedidos', rutasPedidos);
 aplicacion.use('/api/resenas', rutasResenas);
 
@@ -94,10 +100,9 @@ process.on('unhandledRejection', (err) => {
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('Excepción no capturada:', err.message);
-  console.log('🔄 Cerrando servidor debido a una excepción no capturada...');
-  
-  process.exit(1);
+  console.error('⚠️  Excepción capturada:', err.message);
+  console.error('Stack trace:', err.stack);
+  console.log('🔄 Servidor continúa funcionando...');
 });
 
 process.on('SIGTERM', () => {

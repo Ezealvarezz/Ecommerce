@@ -23,14 +23,13 @@ const esquemaUsuario = new mongoose.Schema({
   },
   telefono: {
     type: String,
-    required: [true, 'El teléfono es obligatorio'],
-    match: [/^\d{10,15}$/, 'Formato de teléfono inválido']
+    required: [true, 'El teléfono es obligatorio']
   },
   direccion: {
-    calle: { type: String, required: true },
-    ciudad: { type: String, required: true },
-    codigoPostal: { type: String, required: true },
-    pais: { type: String, required: true, default: 'Argentina' }
+    calle: { type: String, required: false },
+    ciudad: { type: String, required: false },
+    codigoPostal: { type: String, required: false },
+    pais: { type: String, required: false, default: 'Argentina' }
   },
   rol: {
     type: String,

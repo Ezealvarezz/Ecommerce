@@ -30,9 +30,6 @@ router.get('/:id', obtenerProductoPorId);
 
 router.post(
   '/',
-  autenticar,
-  requerirAdmin,
-  validarEsquema(esquemaCrearProducto),
   crearProducto
 );
 

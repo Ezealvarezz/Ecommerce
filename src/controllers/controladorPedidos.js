@@ -6,21 +6,21 @@ const { mongoose } = require('mongoose');
 const crearPedido = async (req, res, next) => {
   try {
     const idUsuario = req.usuario.id;
-    const { direccionEntrega, metodoPago, notas } = req.body;
+    const { direccionEnvio, metodoPago, notas } = req.body;
 
     const carrito = await Carrito.findOne({ usuario: idUsuario })
-      .populate('productos.producto');
+      .populate('items.producto');
 
-    if (!carrito || carrito.productos.length === 0) {
+    if (!carrito || carrito.items.length === 0) {
       return res.error('El carrito está vacío', 400);
     }
 
-    for (const item of carrito.productos) {
+    for (const item of carrito.items) {
       if (!item.producto) {
         return res.error('Uno o más productos ya no están disponibles', 400);
       }
 
-      if (!item.producto.disponible) {
+      if (!item.producto.activo) {
         return res.error(
           `El producto "${item.producto.nombre}" no está disponible`,
           400
@@ -35,31 +35,26 @@ const crearPedido = async (req, res, next) => {
       }
     }
 
-    await carrito.calcularTotales();
-
     const numeroPedido = await generarNumeroPedido();
 
     const nuevoPedido = new Pedido({
       numeroPedido,
       usuario: idUsuario,
-      productos: carrito.productos.map(item => ({
+      items: carrito.items.map(item => ({
         producto: item.producto._id,
+        nombre: item.producto.nombre,
         cantidad: item.cantidad,
-        precioUnitario: item.precioUnitario,
-        subtotal: item.cantidad * item.precioUnitario
+        precio: item.precio
       })),
-      subtotal: carrito.subtotal,
-      impuestos: carrito.impuestos,
-      costoEnvio: carrito.costoEnvio,
-      total: carrito.total,
-      direccionEntrega,
+      total: carrito.total || carrito.items.reduce((sum, item) => sum + (item.cantidad * item.precio), 0),
+      direccionEnvio,
       metodoPago,
       notas
     });
 
     const pedidoGuardado = await nuevoPedido.save();
 
-    for (const item of carrito.productos) {
+    for (const item of carrito.items) {
       await Producto.findByIdAndUpdate(
         item.producto._id,
         { 
@@ -69,13 +64,13 @@ const crearPedido = async (req, res, next) => {
       );
     }
 
-    carrito.productos = [];
+    carrito.items = [];
     await carrito.save();
 
     const pedidoCompleto = await Pedido.findById(pedidoGuardado._id)
       .populate('usuario', 'nombre email')
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre imagenes categoria',
         populate: {
           path: 'categoria',
@@ -97,7 +92,7 @@ const crearPedido = async (req, res, next) => {
 const obtenerPedidos = async (req, res, next) => {
   try {
     const idUsuario = req.usuario.id;
-    const esAdmin = req.usuario.rol === 'admin';
+    const esAdmin = req.usuario.rol === 'administrador';
     
     const pagina = parseInt(req.query.pagina) || 1;
     const limite = parseInt(req.query.limite) || 10;
@@ -119,7 +114,7 @@ const obtenerPedidos = async (req, res, next) => {
     const pedidos = await Pedido.find(filtros)
       .populate('usuario', 'nombre email')
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre imagenes categoria',
         populate: {
           path: 'categoria',
@@ -154,7 +149,7 @@ const obtenerPedidoPorId = async (req, res, next) => {
   try {
     const { id } = req.params;
     const idUsuario = req.usuario.id;
-    const esAdmin = req.usuario.rol === 'admin';
+    const esAdmin = req.usuario.rol === 'administrador';
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.error('ID de pedido inválido', 400);
@@ -168,7 +163,7 @@ const obtenerPedidoPorId = async (req, res, next) => {
     const pedido = await Pedido.findOne(filtros)
       .populate('usuario', 'nombre email telefono')
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre descripcion imagenes categoria especificaciones',
         populate: {
           path: 'categoria',
@@ -227,14 +222,11 @@ const actualizarEstadoPedido = async (req, res, next) => {
       }
     }
 
-    const historialEstado = {
-      estado: estado,
-      fecha: new Date(),
-      notas: notasAdmin
-    };
-
     pedido.estado = estado;
-    pedido.historialEstados.push(historialEstado);
+    
+    if (notasAdmin) {
+      pedido.notas = notasAdmin;
+    }
     
     if (estado === 'entregado') {
       pedido.fechaEntrega = new Date();
@@ -245,7 +237,7 @@ const actualizarEstadoPedido = async (req, res, next) => {
     const pedidoActualizado = await Pedido.findById(id)
       .populate('usuario', 'nombre email')
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre imagenes categoria',
         populate: {
           path: 'categoria',
@@ -267,7 +259,7 @@ const cancelarPedido = async (req, res, next) => {
   try {
     const { id } = req.params;
     const idUsuario = req.usuario.id;
-    const esAdmin = req.usuario.rol === 'admin';
+    const esAdmin = req.usuario.rol === 'administrador';
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.error('ID de pedido inválido', 400);
@@ -311,7 +303,7 @@ const cancelarPedido = async (req, res, next) => {
     const pedidoActualizado = await Pedido.findById(id)
       .populate('usuario', 'nombre email')
       .populate({
-        path: 'productos.producto',
+        path: 'items.producto',
         select: 'nombre imagenes categoria',
         populate: {
           path: 'categoria',

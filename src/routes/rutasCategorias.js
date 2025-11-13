@@ -30,7 +30,6 @@ router.post(
   '/',
   autenticar,
   requerirAdmin,
-  validarEsquema(esquemaCrearCategoria),
   crearCategoria
 );
 
